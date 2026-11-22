@@ -7,7 +7,7 @@ Django REST framework API (users and groups), generated with Django 3.1.
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install "Django>=4.2,<5" "djangorestframework>=3.14,<4"
+pip install -r requirements.txt
 cp .env.example .env
 ```
 

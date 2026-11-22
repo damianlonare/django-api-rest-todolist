@@ -20,7 +20,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def _load_dotenv(path):
-    """Load KEY=VALUE pairs from a local .env file without overriding the environment."""
+    """Load KEY=VALUE pairs from a local .env file without overriding the environment.
+
+    A value wrapped in a matching pair of single or double quotes is unwrapped.
+    Otherwise an unquoted `` #`` starts a trailing comment. This is for local
+    development only: values are not interpolated and cannot span lines.
+    """
     if not path.is_file():
         return
     for raw_line in path.read_text(encoding='utf-8').splitlines():
@@ -33,7 +38,17 @@ def _load_dotenv(path):
             key = key[len('export '):].strip()
         if not key or key in os.environ:
             continue
-        os.environ[key] = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if value[:1] in {'"', "'"}:
+            quote = value[0]
+            end = value.find(quote, 1)
+            if end != -1:
+                value = value[1:end]
+        else:
+            comment_at = value.find(' #')
+            if comment_at != -1:
+                value = value[:comment_at].rstrip()
+        os.environ[key] = value
 
 
 def _env_bool(name, default=False):
