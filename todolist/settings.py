@@ -10,22 +10,72 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _load_dotenv(path):
+    """Load KEY=VALUE pairs from a local .env file without overriding the environment.
+
+    A value wrapped in a matching pair of single or double quotes is unwrapped.
+    Otherwise an unquoted `` #`` starts a trailing comment. This is for local
+    development only: values are not interpolated and cannot span lines.
+    """
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        if key.startswith('export '):
+            key = key[len('export '):].strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip()
+        if value[:1] in {'"', "'"}:
+            quote = value[0]
+            end = value.find(quote, 1)
+            if end != -1:
+                value = value[1:end]
+        else:
+            comment_at = value.find(' #')
+            if comment_at != -1:
+                value = value[:comment_at].rstrip()
+        os.environ[key] = value
+
+
+def _env_bool(name, default=False):
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+_load_dotenv(BASE_DIR / '.env')
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '&=mv&-qmb2u^z%u4ke8k_q1z3k(@r=4o-d@gk%9mvy2z1shxwo'
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured('Set the SECRET_KEY environment variable.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('ALLOWED_HOSTS', '').split(',')
+    if host.strip()
+]
 
 
 # Application definition
